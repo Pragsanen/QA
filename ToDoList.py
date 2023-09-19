@@ -1,4 +1,5 @@
 import telebot
+from telebot import types
 
 bot = telebot.TeleBot('6476351106:AAGW_MvwaqmRgJ8mx5sUN6gjMoAfoVlxiHU')
 
@@ -13,8 +14,7 @@ def help(message):
     - /addtask [task]: Add a new task to your list.
     - /removetask [task]: Remove a task from your list.
     - /completetask [task]: Mark a task as completed.
-    - /listtasks: View your current task list.
-    """)
+    - /listtasks: View your current task list. """)
 
 @bot.message_handler(commands=['addtask'])
 def add_task(message):
