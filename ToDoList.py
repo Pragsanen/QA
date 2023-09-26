@@ -85,7 +85,7 @@ def add_task_deadline(message):
 def remove_task_menu_callback(call):
     bot.send_message(call.message.chat.id, "You selected 'Remove Task'. Please enter the task number to remove.")
     bot.register_next_step_handler(call.message, remove_task_number)
-
+    display_task_list(call.message.chat.id)
 # Функція для обробки введеного користувачем номера завдання для видалення
 def remove_task_number(message):
     task_number = message.text
@@ -96,6 +96,9 @@ def remove_task_number(message):
             task = tasks.pop(task_number - 1)
             save_tasks(tasks)
             bot.send_message(message.chat.id, f"Task '{task['task']}' removed.")
+
+            # Після видалення завдання оновлюємо список і відправляємо користувачу
+            display_task_list(message.chat.id)
         else:
             bot.send_message(message.chat.id, "Invalid task number. Please enter a valid task number.")
     else:
