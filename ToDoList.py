@@ -58,28 +58,36 @@ def add_task_description(message):
         tasks = load_tasks()
         tasks.append({"task": task_description, "done": False, "deadline": None})
         save_tasks(tasks)
-        # Після додавання опису завдання, запитати про дедлайн
+
+        # Оновлюємо список завдань та відправляємо його
+        display_task_list(message.chat.id)
+
+        # Після додавання опису завдання, запитуємо про дедлайн
         bot.send_message(message.chat.id,
                          f"Task '{task_description}' added. Please enter the deadline (e.g., 'YYYY-MM-DD HH:MM').")
         bot.register_next_step_handler(message, add_task_deadline)
     else:
         bot.send_message(message.chat.id, "Please provide a task description.")
-    # Функція для обробки введеного користувачем дедлайну
+
+# Функція для обробки введеного користувачем дедлайну
 def add_task_deadline(message):
-        deadline = message.text
-        if deadline:
-            try:
-                deadline_date = datetime.strptime(deadline, "%Y-%m-%d %H:%M")  # Припустимий формат дедлайну
-                tasks = load_tasks()
-                latest_task = tasks[-1]  # Отримуємо останнє додане завдання
-                latest_task["deadline"] = deadline_date.strftime(
-                    "%Y-%m-%d %H:%M")  # Додаємо дедлайн до останнього завдання
-                save_tasks(tasks)
-                bot.send_message(message.chat.id, f"Deadline for task '{latest_task['task']}' set to {deadline}.")
-            except ValueError:
-                bot.send_message(message.chat.id, "Invalid deadline format. Please use 'YYYY-MM-DD HH:MM'.")
-        else:
-            bot.send_message(message.chat.id, "Please provide a deadline.")
+    deadline = message.text
+    if deadline:
+        try:
+            deadline_date = datetime.strptime(deadline, "%Y-%m-%d %H:%M")  # Припустимий формат дедлайну
+            tasks = load_tasks()
+            latest_task = tasks[-1]  # Отримуємо останнє додане завдання
+            latest_task["deadline"] = deadline_date.strftime(
+                "%Y-%m-%d %H:%M")  # Додаємо дедлайн до останнього завдання
+            save_tasks(tasks)
+            bot.send_message(message.chat.id, f"Deadline for task '{latest_task['task']}' set to {deadline}.")
+
+            # Оновлюємо список завдань та відправляємо його
+            display_task_list(message.chat.id)
+        except ValueError:
+            bot.send_message(message.chat.id, "Invalid deadline format. Please use 'YYYY-MM-DD HH:MM'.")
+    else:
+        bot.send_message(message.chat.id, "Please provide a deadline.")
 # Обробник події "Remove Task"
 @bot.callback_query_handler(func=lambda call: call.data == 'removetask')
 def remove_task_menu_callback(call):
