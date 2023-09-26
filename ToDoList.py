@@ -2,6 +2,7 @@ import json
 import telebot
 from telebot import types
 from datetime import datetime
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 bot = telebot.TeleBot('6476351106:AAGW_MvwaqmRgJ8mx5sUN6gjMoAfoVlxiHU')
 def load_tasks():
     try:
@@ -51,6 +52,7 @@ def add_task_callback(call):
     bot.send_message(call.message.chat.id, "You selected 'Add Task'. Please enter the task description.")
     bot.register_next_step_handler(call.message, add_task_description)
 
+
 # Функція для обробки введеного користувачем опису завдання
 def add_task_description(message):
     task_description = message.text
@@ -62,12 +64,67 @@ def add_task_description(message):
         # Оновлюємо список завдань та відправляємо його
         display_task_list(message.chat.id)
 
-        # Після додавання опису завдання, запитуємо про дедлайн
+        # Створюємо кнопки для вибору дедлайну
+        keyboard = types.InlineKeyboardMarkup()
+        today_button = types.InlineKeyboardButton("Today", callback_data="deadline_today")
+        tomorrow_button = types.InlineKeyboardButton("Tomorrow", callback_data="deadline_tomorrow")
+        this_week_button = types.InlineKeyboardButton("This Week", callback_data="deadline_this_week")
+        custom_button = types.InlineKeyboardButton("Custom", callback_data="deadline_custom")
+        keyboard.row(today_button, tomorrow_button)
+        keyboard.row(this_week_button, custom_button)
+
+        # Після додавання опису завдання, запитуємо про дедлайн за допомогою кнопок
         bot.send_message(message.chat.id,
-                         f"Task '{task_description}' added. Please enter the deadline (e.g., 'YYYY-MM-DD HH:MM').")
-        bot.register_next_step_handler(message, add_task_deadline)
+                         f"Task '{task_description}' added. Please select a deadline:", reply_markup=keyboard)
     else:
         bot.send_message(message.chat.id, "Please provide a task description.")
+
+
+@bot.callback_query_handler(func=lambda call: call.data == 'deadline_today')
+def deadline_today_callback(call):
+    set_deadline(call.message, "Today")
+
+@bot.callback_query_handler(func=lambda call: call.data == 'deadline_tomorrow')
+def deadline_tomorrow_callback(call):
+    set_deadline(call.message, "Tomorrow")
+
+@bot.callback_query_handler(func=lambda call: call.data == 'deadline_this_week')
+def deadline_this_week_callback(call):
+    set_deadline(call.message, "This Week")
+
+@bot.callback_query_handler(func=lambda call: call.data == 'deadline_custom')
+def deadline_custom_callback(call):
+    bot.send_message(call.message.chat.id, "Please enter a custom deadline (e.g., 'YYYY-MM-DD HH:MM').")
+    bot.register_next_step_handler(call.message, set_custom_deadline)
+
+def set_deadline(message, deadline):
+    tasks = load_tasks()
+    latest_task = tasks[-1]
+    latest_task["deadline"] = deadline
+    save_tasks(tasks)
+    bot.send_message(message.chat.id, f"Deadline for task '{latest_task['task']}' set to {deadline}.")
+
+    # Оновлюємо список завдань та відправляємо його
+    display_task_list(message.chat.id)
+
+def set_custom_deadline(message):
+    deadline = message.text
+    if deadline:
+        try:
+            deadline_date = datetime.strptime(deadline, "%Y-%m-%d %H:%M")  # Припустимий формат дедлайну
+            tasks = load_tasks()
+            latest_task = tasks[-1]  # Отримуємо останнє додане завдання
+            latest_task["deadline"] = deadline_date.strftime(
+                "%Y-%m-%d %H:%M")  # Додаємо дедлайн до останнього завдання
+            save_tasks(tasks)
+            bot.send_message(message.chat.id, f"Deadline for task '{latest_task['task']}' set to {deadline}.")
+
+            # Оновлюємо список завдань та відправляємо його
+            display_task_list(message.chat.id)
+        except ValueError:
+            bot.send_message(message.chat.id, "Invalid deadline format. Please use 'YYYY-MM-DD HH:MM'.")
+    else:
+        bot.send_message(message.chat.id, "Please provide a deadline.")
 
 # Функція для обробки введеного користувачем дедлайну
 def add_task_deadline(message):
