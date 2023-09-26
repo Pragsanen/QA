@@ -1,7 +1,7 @@
 import json
 import telebot
 from telebot import types
-from datetime import datetime  # Додайте імпорт datetime
+from datetime import datetime
 bot = telebot.TeleBot('6476351106:AAGW_MvwaqmRgJ8mx5sUN6gjMoAfoVlxiHU')
 def load_tasks():
     try:
@@ -82,28 +82,41 @@ def add_task_deadline(message):
             bot.send_message(message.chat.id, "Please provide a deadline.")
 # Обробник події "Remove Task"
 @bot.callback_query_handler(func=lambda call: call.data == 'removetask')
-def remove_task_callback(call):
-    bot.send_message(call.message.chat.id, "You selected 'Remove Task'. Please enter the task description to remove.")
-    bot.register_next_step_handler(call.message, remove_task_description)
+def remove_task_menu_callback(call):
+    bot.send_message(call.message.chat.id, "You selected 'Remove Task'. Please enter the task number to remove.")
+    bot.register_next_step_handler(call.message, remove_task_number)
 
-# Функція для обробки введеного користувачем опису завдання для видалення
-def remove_task_description(message):
-    task_description = message.text
-    if task_description:
+# Функція для обробки введеного користувачем номера завдання для видалення
+def remove_task_number(message):
+    task_number = message.text
+    if task_number.isdigit():
+        task_number = int(task_number)
         tasks = load_tasks()
-        task_removed = None
-        for task in tasks:
-            if task["task"].lower() == task_description.lower():
-                task_removed = task
-                tasks.remove(task)
-                break
-        save_tasks(tasks)
-        if task_removed:
-            bot.send_message(message.chat.id, f"Task '{task_description}' removed.")
+        if 1 <= task_number <= len(tasks):
+            task = tasks.pop(task_number - 1)
+            save_tasks(tasks)
+            bot.send_message(message.chat.id, f"Task '{task['task']}' removed.")
         else:
-            bot.send_message(message.chat.id, f"Task '{task_description}' not found.")
+            bot.send_message(message.chat.id, "Invalid task number. Please enter a valid task number.")
     else:
-        bot.send_message(message.chat.id, "Please provide a task description.")
+        bot.send_message(message.chat.id, "Please enter a valid task number.")
+
+# Оновлений список завдань
+def display_task_list(chat_id):
+    tasks = load_tasks()
+    if tasks:
+        task_list = ""
+        for i, task in enumerate(tasks, start=1):
+            status = "[x]" if task["done"] else "[ ]"
+            task_description = task["task"]
+            deadline = task["deadline"]
+            if deadline:
+                task_list += f"{i}. {status} {task_description} (Deadline: {deadline})\n"
+            else:
+                task_list += f"{i}. {status} {task_description}\n"
+        bot.send_message(chat_id, f"Your task list:\n{task_list}")
+    else:
+        bot.send_message(chat_id, "Your task list is empty.")
 
 # Обробник події "Complete Task"
 @bot.callback_query_handler(func=lambda call: call.data == 'completetask')
