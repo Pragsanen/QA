@@ -70,7 +70,7 @@ def start(message):
     BUTTON_EXISTING_LIST = 'existinglist'
     BUTTON_SELECT_FILE = 'selectfile'
 
-    # Create the inline keyboard markup
+    # Отримання кнопок для відображення
     markup = types.InlineKeyboardMarkup()
     btn1 = types.InlineKeyboardButton('Add Task', callback_data=BUTTON_ADD_TASK)
     btn2 = types.InlineKeyboardButton('Remove Task', callback_data=BUTTON_REMOVE_TASK)
