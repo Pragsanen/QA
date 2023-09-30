@@ -2,6 +2,7 @@ import json
 import telebot
 import re
 import time
+import copy
 from telebot import types
 from datetime import datetime
 
@@ -144,7 +145,6 @@ def list_tasks_callback(call):
     bot.send_message(call.message.chat.id, "You selected 'List Tasks'. Here are your current tasks:")
     display_task_list(call.message.chat.id)
 
-# Додаткова імпортована бібліотека
 from dateutil.relativedelta import relativedelta
 
 # Змінна для зберігання інформації, специфічної для чату
@@ -184,7 +184,6 @@ def ask_task_number(message):
         bot.send_message(chat_id, "Please enter a valid task number.")
 
 # Функція для зміни дедлайну
-# Функція для зміни дедлайну
 def set_new_deadline(message):
     chat_id = message.chat.id
     new_deadline = message.text
@@ -193,35 +192,34 @@ def set_new_deadline(message):
             deadline_date = datetime.strptime(new_deadline, "%Y-%m-%d %H:%M")
             task_to_change = chat_info[chat_id]["task_to_change"]
             old_deadline = task_to_change.get('deadline', None)
-            # Оновлення дедлайну для завдання, навіть якщо старий дедлайн був None
-            task_to_change['deadline'] = deadline_date.strftime("%Y-%m-%d %H:%M")
+
+            # Створення глибокої копії задачі
+            task_tmp = copy.deepcopy(task_to_change)
+
+            # Оновлення дедлайну для копії задачі
+            task_tmp['deadline'] = deadline_date.strftime("%Y-%m-%d %H:%M")
 
             # Оновлення списку завдань у файлі
             tasks = load_tasks()
-            for i, task in enumerate(tasks):
-                if task == task_to_change:
-                    tasks[i] = task_to_change
-                    break  # Зупиняємо цикл, якщо знайдено і оновлено завдання
-            save_tasks(tasks)
 
-            bot.send_message(chat_id, "Deadline updated successfully.")
+            for i, task in enumerate(tasks):
+                if task["task"] == task_to_change["task"]:
+                    # Замінюємо оригінальну задачу на копію з оновленим дедлайном
+                    tasks[i] = task_tmp
+                    break
+
+            save_tasks(tasks)
 
             # Очищення змінних для зміни дедлайну
             chat_info[chat_id].pop("changing_deadline", None)
             chat_info[chat_id].pop("task_to_change", None)
 
-            # Додаємо паузу перед викликом функції для оновлення списку завдань
-            time.sleep(1)
-
-            # Оновлення списку завдань після зміни дедлайну
-            display_updated_task_list(chat_id, tasks)
-
             # Видалення попереднього повідомлення
             bot.delete_message(chat_id=chat_id, message_id=message.message_id)
-        except ValueError:
-            bot.send_message(chat_id, "Invalid deadline format. Please use 'YYYY-MM-DD HH:MM'.")
-    else:
-        bot.send_message(chat_id, "Please provide a new deadline.")
+
+        except Exception as e:
+            bot.send_message(chat_id, f"An error occurred: {str(e)}")
+
 # Функція для відображення оновленого списку завдань
 def display_updated_task_list(chat_id, tasks):
     if not tasks:
