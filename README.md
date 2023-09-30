@@ -23,6 +23,8 @@ Existing Lists: Work with existing lists by selecting them with the /existinglis
 
 Select File: Create or select a file for working with tasks.
 
+Link to Telegram bot @QA_TDLBot
+
 Українська (Ukrainian):
 
 Опис бота:
@@ -49,3 +51,5 @@ Select File: Create or select a file for working with tasks.
 Існуючі списки: Працюйте з існуючими списками, вибираючи їх за допомогою команди /existinglist.
 
 Вибір файлу: Створіть або виберіть файл для роботи з завданнями.
+
+Посилання на бота в Телеграм @QA_TDLBot
