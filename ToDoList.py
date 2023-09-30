@@ -68,7 +68,7 @@ def start(message):
     BUTTON_CLEAR_TASKS = 'cleartasks'
     BUTTON_NEW_LIST = 'newlist'
     BUTTON_EXISTING_LIST = 'existinglist'
-    BUTTON_SELECT_FILE = 'selectfile'  # Added this constant
+    BUTTON_SELECT_FILE = 'selectfile'
 
     # Create the inline keyboard markup
     markup = types.InlineKeyboardMarkup()
