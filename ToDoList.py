@@ -517,6 +517,8 @@ def help_callback(call):
         /existinglist - Choose an existing list to work with.
         /newlist - Create a new to - do list.""")\
 
+todo_lists = {}\
+
 @bot.callback_query_handler(func=lambda call: call.data == 'newlist')
 def new_list_callback(call):
     chat_id = call.message.chat.id
@@ -536,7 +538,7 @@ def create_new_list(message):
 @bot.message_handler(commands=['newlist'])
 def new_list_command(message):
     chat_id = message.chat.id
-    bot.send_message(chat_id, "Ви обрали створення нового списку завдань. Будь ласка, введіть назву нового списку.")
+    bot.send_message(chat_id, "You have chosen to create a new to-do list. Please enter the name of the new list.")
     bot.register_next_step_handler(message, create_new_list)
 
 def create_new_list(message):
@@ -548,7 +550,7 @@ def create_new_list(message):
 
     todo_lists[chat_id].append({"list_name": new_list_name, "tasks": []})
 
-    bot.send_message(chat_id, f"Створено новий список завдань '{new_list_name}'.")
+    bot.send_message(chat_id, f"New to-do list '{new_list_name}' has been created.'.")
 
 # Handling the /existinglist command
 @bot.message_handler(commands=['existinglist'])
