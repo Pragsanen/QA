@@ -46,7 +46,6 @@ def add_task_with_deadline(chat_id, task_description, deadline):
     # Оновлення списку завдань і відправка його користувачеві
     display_task_list(chat_id)
 
-# Define your command strings
 COMMAND_ADD_TASK = "/addtask"
 COMMAND_REMOVE_TASK = "/removetask"
 COMMAND_COMPLETE_TASK = "/completetask"
@@ -56,24 +55,42 @@ COMMAND_HELP = "/help"
 COMMAND_CLEAR_TASKS = "/cleartasks"
 COMMAND_NEW_LIST = "/newlist"
 COMMAND_EXISTING_LIST = "/existinglist"
+COMMAND_SELECT_FILE = "selectfile"
 
-# Define the callback data strings for buttons
-BUTTON_ADD_TASK = 'addtask'
-BUTTON_REMOVE_TASK = 'removetask'
-BUTTON_COMPLETE_TASK = 'completetask'
-BUTTON_LIST_TASKS = 'listtasks'
-BUTTON_CHANGE_DEADLINE = 'changedeadline'
-BUTTON_HELP = 'help'
-BUTTON_CLEAR_TASKS = 'cleartasks'
-BUTTON_NEW_LIST = 'newlist'
-BUTTON_EXISTING_LIST = 'existinglist'
-@bot.callback_query_handler(func=lambda call: call.data == 'newlist')
-def new_list_callback(call):
-    bot.send_message(call.message.chat.id, "You have chosen to create a new list. Implement this function here")
-@bot.callback_query_handler(func=lambda call: call.data == 'existinglist')
-def existing_list_callback(call):
-    bot.send_message(call.message.chat.id, "You have chosen to work with an existing list. Implement this functionality here.")
+@bot.message_handler(commands=['start'])
+def start(message):
+    BUTTON_ADD_TASK = 'addtask'
+    BUTTON_REMOVE_TASK = 'removetask'
+    BUTTON_COMPLETE_TASK = 'completetask'
+    BUTTON_LIST_TASKS = 'listtasks'
+    BUTTON_CHANGE_DEADLINE = 'changedeadline'
+    BUTTON_HELP = 'help'
+    BUTTON_CLEAR_TASKS = 'cleartasks'
+    BUTTON_NEW_LIST = 'newlist'
+    BUTTON_EXISTING_LIST = 'existinglist'
+    BUTTON_SELECT_FILE = 'selectfile'  # Added this constant
 
+    # Create the inline keyboard markup
+    markup = types.InlineKeyboardMarkup()
+    btn1 = types.InlineKeyboardButton('Add Task', callback_data=BUTTON_ADD_TASK)
+    btn2 = types.InlineKeyboardButton('Remove Task', callback_data=BUTTON_REMOVE_TASK)
+    btn3 = types.InlineKeyboardButton('Complete Task', callback_data=BUTTON_COMPLETE_TASK)
+    btn4 = types.InlineKeyboardButton('List Tasks', callback_data=BUTTON_LIST_TASKS)
+    btn5 = types.InlineKeyboardButton('Change Deadline', callback_data=BUTTON_CHANGE_DEADLINE)
+    btn6 = types.InlineKeyboardButton('Help', callback_data=BUTTON_HELP)
+    btn7 = types.InlineKeyboardButton('Clear Tasks', callback_data=BUTTON_CLEAR_TASKS)
+    btn8 = types.InlineKeyboardButton('New List', callback_data=BUTTON_NEW_LIST)
+    btn9 = types.InlineKeyboardButton('Existing List', callback_data=BUTTON_EXISTING_LIST)
+    btn10 = types.InlineKeyboardButton('Select File', callback_data=BUTTON_SELECT_FILE)  # Added this button
+
+    markup.row(btn1, btn2)
+    markup.row(btn3, btn4)
+    markup.row(btn5, btn6)
+    markup.row(btn7)
+    markup.row(btn8, btn9)
+    markup.row(btn10)
+
+    bot.send_message(message.chat.id, "Welcome to the Task Bot! Here are the available functions:", reply_markup=markup)
 # Обробник для додавання завдань з дедлайном
 @bot.callback_query_handler(func=lambda call: call.data == 'addtask')
 def add_task_callback(call):
@@ -259,11 +276,107 @@ def complete_task_number(message):
 def list_tasks_callback(call):
     bot.send_message(call.message.chat.id, "You selected 'List Tasks'. Here are your current tasks:")
     display_task_list(call.message.chat.id)
+@bot.message_handler(commands=['listtasks'])
+def complete_task_command(message):
+    bot.send_message(message.chat.id, "You selected 'List Tasks'. Here are your current tasks:")
+    display_task_list(message.chat.id)
 
 from dateutil.relativedelta import relativedelta
 
 # Змінна для зберігання інформації, специфічної для чату
 chat_info = {}
+# Обробник для зміни дедлайну
+@bot.message_handler(commands=['changedeadline'])
+def change_deadline_command(message):
+    chat_id = message.chat.id
+    chat_info[chat_id] = {"changing_deadline": True}
+    bot.send_message(chat_id, "Please enter the task number you want to change the deadline for.")
+
+    # Відображення поточного списку завдань
+    display_task_list(chat_id)  # Передача завдань у функцію
+
+# Обробник повідомлень, якщо користувач міняє дедлайн
+@bot.message_handler(func=lambda message: chat_info.get(message.chat.id, {}).get("changing_deadline", False))
+def ask_task_number(message):
+    chat_id = message.chat.id
+    task_number = message.text
+    if task_number.isdigit():
+        task_number = int(task_number) - 1  # Віднімання 1, щоб отримати правильний індекс завдання
+        tasks = load_tasks()
+        if 0 <= task_number < len(tasks):
+            task_to_change = tasks[task_number]
+            chat_info[chat_id]["task_to_change"] = task_to_change
+            old_deadline = task_to_change.get('deadline', None)
+            if old_deadline:
+                bot.send_message(chat_id, f"Current deadline for task: {old_deadline}")
+            bot.send_message(chat_id, "Please enter a new deadline (e.g., 'YYYY-MM-DD HH:MM').")
+            bot.register_next_step_handler(message, set_new_deadline)
+        else:
+            bot.send_message(chat_id, "Invalid task number. Please enter a valid task number.")
+    else:
+        bot.send_message(chat_id, "Please enter a valid task number.")
+
+# Функція для встановлення нового дедлайну
+def set_new_deadline(message):
+    chat_id = message.chat.id
+    new_deadline = message.text
+    task_to_change = chat_info[chat_id]["task_to_change"]
+
+    # Створення глибокої копії задачі
+    task_tmp = copy.deepcopy(task_to_change)
+
+    try:
+        deadline_date = datetime.strptime(new_deadline, "%Y-%m-%d %H:%M")
+
+        # Оновлення дедлайну для копії задачі
+        task_tmp['deadline'] = deadline_date.strftime("%Y-%m-%d %H:%M")
+
+        # Оновлення списку завдань у файлі
+        tasks = load_tasks()
+        task_found = False  # Змінна для відстеження, чи знайдено завдання для оновлення
+
+        for i, task in enumerate(tasks):
+            if task["task"] == task_to_change["task"]:
+                # Замінюємо оригінальну задачу на копію з оновленим дедлайном
+                tasks[i] = task_tmp
+                task_found = True
+                break
+
+        if not task_found:
+            # Якщо завдання для оновлення не знайдено, то додаємо нове завдання
+            tasks.append(task_tmp)
+
+        save_tasks(tasks)
+
+        # Очищення змінних для зміни дедлайну
+        chat_info[chat_id].pop("changing_deadline", None)
+        chat_info[chat_id].pop("task_to_change", None)
+
+        # Видалення попереднього повідомлення
+        bot.delete_message(chat_id=chat_id, message_id=message.message_id)
+
+        bot.send_message(chat_id, "Deadline updated successfully!")
+
+    except ValueError:
+        # Якщо формат дедлайну неправильний, запитати ще раз
+        bot.send_message(chat_id, "Invalid date format. Please enter a new deadline in the format 'YYYY-MM-DD HH:MM'.")
+        bot.send_message(chat_id, "Please enter a new deadline (e.g., 'YYYY-MM-DD HH:MM').")
+
+    except KeyError:
+        # Якщо завдання не має поточного дедлайну, додати новий дедлайн
+        tasks = load_tasks()
+        tasks.append(task_tmp)
+        save_tasks(tasks)
+
+        # Очищення змінних для зміни дедлайну
+        chat_info[chat_id].pop("changing_deadline", None)
+        chat_info[chat_id].pop("task_to_change", None)
+
+        # Видалення попереднього повідомлення
+        bot.delete_message(chat_id=chat_id, message_id=message.message_id)
+
+        bot.send_message(chat_id, "Deadline added successfully!")
+
 @bot.callback_query_handler(func=lambda call: call.data == 'changedeadline')
 def change_deadline_button_callback(call):
     chat_id = call.message.chat.id
@@ -354,6 +467,15 @@ def set_new_deadline(message):
 
         bot.send_message(chat_id, "Deadline added successfully!")
 
+@bot.message_handler(commands=['cleartasks'])
+def clear_tasks_command(message):
+    tasks = load_tasks()
+    if tasks:
+        tasks.clear()
+        save_tasks(tasks)
+        bot.send_message(message.chat.id, "Your task list has been cleared.")
+    else:
+        bot.send_message(message.chat.id, "Your task list is already empty.")
 @bot.callback_query_handler(func=lambda call: call.data == 'cleartasks')
 def clear_tasks_callback(call):
     tasks = load_tasks()
@@ -364,38 +486,171 @@ def clear_tasks_callback(call):
     else:
         bot.send_message(call.message.chat.id, "Your task list is already empty.")
 
-@bot.message_handler(commands=['start'])
-def start(message):
-    markup = types.InlineKeyboardMarkup()
-    btn1 = types.InlineKeyboardButton('Add Task', callback_data=BUTTON_ADD_TASK)
-    btn2 = types.InlineKeyboardButton('Remove Task', callback_data=BUTTON_REMOVE_TASK)
-    btn3 = types.InlineKeyboardButton('Complete Task', callback_data=BUTTON_COMPLETE_TASK)
-    btn4 = types.InlineKeyboardButton('List Tasks', callback_data=BUTTON_LIST_TASKS)
-    btn5 = types.InlineKeyboardButton('Change Deadline', callback_data=BUTTON_CHANGE_DEADLINE)
-    btn6 = types.InlineKeyboardButton('Help', callback_data=BUTTON_HELP)
-    btn7 = types.InlineKeyboardButton('Clear Tasks', callback_data=BUTTON_CLEAR_TASKS)
-    btn8 = types.InlineKeyboardButton('New List', callback_data=BUTTON_NEW_LIST)
-    btn9 = types.InlineKeyboardButton('Existing List', callback_data=BUTTON_EXISTING_LIST)
-
-    markup.row(btn1, btn2)
-    markup.row(btn3, btn4)
-    markup.row(btn5, btn6)
-    markup.row(btn7)
-    markup.row(btn8, btn9)
-
-    bot.send_message(message.chat.id, "Welcome to the Task Bot! Here are the available functions:", reply_markup=markup)
-
+@bot.message_handler(commands=['help'])
+def help_tasks_command(message):
+    bot.send_message(message.chat.id, """
+        Here are the available commands:
+        start - Start using the bot.
+        /addtask - Add a new task to your to-do list.
+        /removetask - Remove a task from your to-do list.
+        /completetask - Mark a task as completed.
+        /listtasks - List all the tasks in your to-do list.
+        /changedeadline - Change the deadline for a task.
+        /help - Get assistance and instructions on using the bot.
+        /cleartasks - Clear all tasks from your to-do list.
+        /selectfile - Create or select a file for working with tasks.
+        /existinglist - Choose an existing list to work with.
+        /newlist - Create a new to - do list.""")
 @bot.callback_query_handler(func=lambda call: call.data == 'help')
 def help_callback(call):
     bot.send_message(call.message.chat.id, """
-    Here are the available commands:
-    - /addtask [task]: Add a new task to your list.
-    - /removetask [task]: Remove a task from your list.
-    - /completetask [task]: Mark a task as completed.
-    - /listtasks: View your current task list.
-    - /changedeadline: Change the deadline for a task.
-    - /cleartasks: Clear your task list.
-    """)
+        Here are the available commands:
+        start - Start using the bot.
+        /addtask - Add a new task to your to-do list.
+        /removetask - Remove a task from your to-do list.
+        /completetask - Mark a task as completed.
+        /listtasks - List all the tasks in your to-do list.
+        /changedeadline - Change the deadline for a task.
+        /help - Get assistance and instructions on using the bot.
+        /cleartasks - Clear all tasks from your to-do list.
+        /selectfile - Create or select a file for working with tasks.
+        /existinglist - Choose an existing list to work with.
+        /newlist - Create a new to - do list.""")\
+
+@bot.callback_query_handler(func=lambda call: call.data == 'newlist')
+def new_list_callback(call):
+    chat_id = call.message.chat.id
+    bot.send_message(chat_id, "You have chosen to create a new to-do list. Please enter the name of the new list.")
+    bot.register_next_step_handler(call.message, create_new_list)
+
+def create_new_list(message):
+    chat_id = message.chat.id
+    new_list_name = message.text
+
+    if chat_id not in todo_lists:
+        todo_lists[chat_id] = []
+
+    todo_lists[chat_id].append({"list_name": new_list_name, "tasks": []})
+
+    bot.send_message(chat_id, f"New to-do list '{new_list_name}' has been created.")
+@bot.message_handler(commands=['newlist'])
+def new_list_command(message):
+    chat_id = message.chat.id
+    bot.send_message(chat_id, "Ви обрали створення нового списку завдань. Будь ласка, введіть назву нового списку.")
+    bot.register_next_step_handler(message, create_new_list)
+
+def create_new_list(message):
+    chat_id = message.chat.id
+    new_list_name = message.text
+
+    if chat_id not in todo_lists:
+        todo_lists[chat_id] = []
+
+    todo_lists[chat_id].append({"list_name": new_list_name, "tasks": []})
+
+    bot.send_message(chat_id, f"Створено новий список завдань '{new_list_name}'.")
+
+# Handling the /existinglist command
+@bot.message_handler(commands=['existinglist'])
+def existing_list_command(message):
+    chat_id = message.chat.id
+
+    if chat_id in todo_lists:
+        existing_lists = [list_info["list_name"] for list_info in todo_lists[chat_id]]
+        markup = types.ReplyKeyboardMarkup(one_time_keyboard=True)
+        for list_name in existing_lists:
+            markup.add(list_name)
+
+        bot.send_message(chat_id, "You have chosen to work with an existing list. Please select a list from the options below:", reply_markup=markup)
+        bot.register_next_step_handler(message, choose_existing_list)
+    else:
+        bot.send_message(chat_id, "Unfortunately, you don't have any created to-do lists. Please create a new list using the /newlist command.")
+
+def choose_existing_list(message):
+    chat_id = message.chat.id
+    selected_list_name = message.text
+
+    list_index = -1
+    if chat_id in todo_lists:
+        for idx, list_info in enumerate(todo_lists[chat_id]):
+            if list_info["list_name"] == selected_list_name:
+                list_index = idx
+                break
+
+    if list_index != -1:
+        bot.send_message(chat_id, f"You have chosen the to-do list '{selected_list_name}'. You can now interact with this list.")
+    else:
+        bot.send_message(chat_id, "List not found. Please select an existing list from the options below:")
+        existing_list_command(message)
+@bot.callback_query_handler(func=lambda call: call.data == 'existinglist')
+def existing_list_callback(call):
+    chat_id = call.message.chat.id
+
+    if chat_id in todo_lists:
+        existing_lists = [list_info["list_name"] for list_info in todo_lists[chat_id]]
+        markup = types.ReplyKeyboardMarkup(one_time_keyboard=True)
+        for list_name in existing_lists:
+            markup.add(list_name)
+
+        bot.send_message(chat_id, "You have chosen to work with an existing list. Please select a list from the options below:", reply_markup=markup)
+        bot.register_next_step_handler(call.message, choose_existing_list)
+    else:
+        bot.send_message(chat_id, "Unfortunately, you don't have any created to-do lists. Please create a new list using the /newlist command.")
+
+def choose_existing_list(message):
+    chat_id = message.chat.id
+    selected_list_name = message.text
+
+    list_index = -1
+    if chat_id in todo_lists:
+        for idx, list_info in enumerate(todo_lists[chat_id]):
+            if list_info["list_name"] == selected_list_name:
+                list_index = idx
+                break
+
+    if list_index != -1:
+        bot.send_message(chat_id, f"You have chosen the to-do list '{selected_list_name}'. You can now interact with this list.")
+    else:
+        bot.send_message(chat_id, "List not found. Please select an existing list from the options below:")
+        existing_list_callback(message)
+# Callback query handler for selectfile
+@bot.callback_query_handler(func=lambda call: call.data == 'selectfile')
+def select_file_callback(call):
+    chat_id = call.message.chat.id
+
+    # Assuming you want to provide options for selecting or creating a file
+    markup = types.ReplyKeyboardMarkup(one_time_keyboard=True)
+    markup.add("Select Existing File", "Create New File")
+
+    bot.send_message(chat_id, "You have chosen to work with files. Please select an option:", reply_markup=markup)
+    bot.register_next_step_handler(call.message, handle_file_option)
+
+# Message handler for /selectfile command
+@bot.message_handler(commands=['selectfile'])
+def select_file_command(message):
+    chat_id = message.chat.id
+
+    # Assuming you want to provide options for selecting or creating a file
+    markup = types.ReplyKeyboardMarkup(one_time_keyboard=True)
+    markup.add("Select Existing File", "Create New File")
+
+    bot.send_message(chat_id, "You have chosen to work with files. Please select an option:", reply_markup=markup)
+    bot.register_next_step_handler(message, handle_file_option)
+
+def handle_file_option(message):
+    chat_id = message.chat.id
+    option = message.text
+
+    if option == "Select Existing File":
+        # Handle the logic for selecting an existing file
+        bot.send_message(chat_id, "You have selected to select an existing file. Implement this functionality here.")
+    elif option == "Create New File":
+        # Handle the logic for creating a new file
+        bot.send_message(chat_id, "You have selected to create a new file. Implement this functionality here.")
+    else:
+        bot.send_message(chat_id, "Invalid option. Please select an option from the provided choices.")
+
 
 print("Bot is running...")
 bot.polling(none_stop=True)
+
